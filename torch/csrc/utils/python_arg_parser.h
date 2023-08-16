@@ -414,7 +414,6 @@ inline std::vector<at::Scalar> PythonArgs::scalarlist(int i) {
   THPObjectPtr arg = six::maybeAsTuple(args[i]);
   // NOLINTNEXTLINE(bugprone-branch-clone)
   auto size = tuple ? PyTuple_GET_SIZE(arg.get()) : PyList_GET_SIZE(arg.get());
-  // NOLINTNEXTLINE(cppcoreguidelines-init-variables)
   std::vector<at::Scalar> res(size);
   for (const auto idx : c10::irange(size)) {
     PyObject* obj = tuple ? PyTuple_GET_ITEM(arg.get(), idx)
@@ -445,7 +444,6 @@ inline std::vector<at::Tensor> PythonArgs::tensorlist(int i) {
   THPObjectPtr arg = six::maybeAsTuple(args[i]);
   // NOLINTNEXTLINE(bugprone-branch-clone)
   auto size = tuple ? PyTuple_GET_SIZE(arg.get()) : PyList_GET_SIZE(arg.get());
-  // NOLINTNEXTLINE(cppcoreguidelines-init-variables)
   std::vector<at::Tensor> res(size);
   for (const auto idx : c10::irange(size)) {
     PyObject* obj = tuple ? PyTuple_GET_ITEM(arg.get(), idx)
@@ -465,7 +463,6 @@ inline torch::List<c10::optional<at::Tensor>> PythonArgs::
   THPObjectPtr arg = six::maybeAsTuple(args[i]);
   // NOLINTNEXTLINE(bugprone-branch-clone)
   auto size = tuple ? PyTuple_GET_SIZE(arg.get()) : PyList_GET_SIZE(arg.get());
-  // NOLINTNEXTLINE(cppcoreguidelines-init-variables)
   torch::List<c10::optional<at::Tensor>> res;
   res.reserve(size);
   for (const auto idx : c10::irange(size)) {
@@ -629,7 +626,6 @@ inline std::vector<int64_t> PythonArgs::intlistWithDefault(
   auto tuple = PyTuple_Check(arg);
   // NOLINTNEXTLINE(bugprone-branch-clone)
   const auto size2 = tuple ? PyTuple_GET_SIZE(arg) : PyList_GET_SIZE(arg);
-  // NOLINTNEXTLINE(cppcoreguidelines-init-variables)
   std::vector<int64_t> res(size2);
   for (const auto idx : c10::irange(size2)) {
     PyObject* obj =
@@ -695,7 +691,6 @@ inline std::vector<double> PythonArgs::getDoublelist(int i) {
   auto tuple = PyTuple_Check(arg);
   // NOLINTNEXTLINE(bugprone-branch-clone)
   auto size = tuple ? PyTuple_GET_SIZE(arg) : PyList_GET_SIZE(arg);
-  // NOLINTNEXTLINE(cppcoreguidelines-init-variables)
   std::vector<double> res(size);
   for (const auto idx : c10::irange(size)) {
     PyObject* obj =
@@ -836,7 +831,6 @@ inline std::vector<at::Dimname> parseDimnameList(PyObject* arg) {
   auto tuple = PyTuple_Check(arg);
   // NOLINTNEXTLINE(bugprone-branch-clone)
   auto size = tuple ? PyTuple_GET_SIZE(arg) : PyList_GET_SIZE(arg);
-  // NOLINTNEXTLINE(cppcoreguidelines-init-variables)
   std::vector<at::Dimname> res;
   res.reserve(size);
   for (const auto idx : c10::irange(size)) {
