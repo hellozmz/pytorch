@@ -948,9 +948,19 @@ static PyObject* push_on_torch_dispatch_stack(
     PyObject* arg) {
   HANDLE_TH_ERRORS
   if (arg != Py_None) {
+    using c10::impl::TorchDispatchModeKey;
+    // When we push a mode onto the mode stack, we need to
+    // check if it's an "infra" mode, by checking its _mode_key attribute.
+    c10::optional<c10::impl::TorchDispatchModeKey> mode_key = c10::nullopt;
+    py::object maybe_mode_key_obj =
+        PyObject_FastGetAttrString(arg, "_mode_key");
+    if (maybe_mode_key_obj) {
+      mode_key = py::cast<c10::impl::TorchDispatchModeKey>(maybe_mode_key_obj);
+    }
+
     Py_INCREF(arg);
     c10::impl::TorchDispatchModeTLS::push_onto_stack(
-        std::make_shared<c10::SafePyObject>(arg, getPyInterpreter()));
+        std::make_shared<c10::SafePyObject>(arg, getPyInterpreter()), mode_key);
   }
   Py_RETURN_NONE;
   END_HANDLE_TH_ERRORS
@@ -958,9 +968,16 @@ static PyObject* push_on_torch_dispatch_stack(
 
 static PyObject* pop_torch_dispatch_stack(
     PyObject* _unused,
-    PyObject* _unused2) {
+    PyObject* maybe_mode_key) {
   HANDLE_TH_ERRORS
-  const auto& mode = c10::impl::TorchDispatchModeTLS::pop_stack();
+  c10::optional<c10::impl::TorchDispatchModeKey> mode_key = c10::nullopt;
+  if (maybe_mode_key != Py_None) {
+    mode_key = py::cast<c10::impl::TorchDispatchModeKey>(maybe_mode_key);
+  }
+
+  const auto& mode_and_maybe_key =
+      c10::impl::TorchDispatchModeTLS::pop_stack(mode_key);
+  auto mode = std::move(std::get<0>(mode_and_maybe_key));
   auto* r = mode->ptr(getPyInterpreter());
   Py_INCREF(r);
   return r;
@@ -985,9 +1002,55 @@ static PyObject* get_dispatch_stack_at(
   END_HANDLE_TH_ERRORS
 }
 
-static PyObject* len_torch_dispatch_stack(
-    PyObject* _unused,
-    PyObject* _unused2) {
+static PyObject* set_dispatch_mode(PyObject* _unused, PyObject* mode) {
+  HANDLE_TH_ERRORS
+  TORCH_CHECK(mode != Py_None);
+
+  py::object maybe_mode_key_obj = PyObject_FastGetAttrString(mode, "_mode_key");
+  TORCH_CHECK(
+      maybe_mode_key_obj,
+      "set_dispatch_mode() called with a mode that does not contain a _mode_key attribute!");
+  auto mode_key = py::cast<c10::impl::TorchDispatchModeKey>(maybe_mode_key_obj);
+
+  Py_INCREF(mode);
+  c10::impl::TorchDispatchModeTLS::set_mode(
+      std::make_shared<c10::SafePyObject>(mode, getPyInterpreter()), mode_key);
+
+  Py_RETURN_NONE;
+  END_HANDLE_TH_ERRORS
+}
+
+static PyObject* get_dispatch_mode(PyObject* _unused, PyObject* arg) {
+  HANDLE_TH_ERRORS
+  TORCH_CHECK(arg != Py_None);
+  auto mode_key = py::cast<c10::impl::TorchDispatchModeKey>(arg);
+
+  auto maybe_mode = c10::impl::TorchDispatchModeTLS::get_mode(mode_key);
+  if (maybe_mode == c10::nullopt) {
+    Py_RETURN_NONE;
+  }
+  auto* r = maybe_mode.value()->ptr(getPyInterpreter());
+  Py_INCREF(r);
+  return r;
+  END_HANDLE_TH_ERRORS
+}
+
+static PyObject* unset_dispatch_mode(PyObject* _unused, PyObject* arg) {
+  HANDLE_TH_ERRORS
+  TORCH_CHECK(arg != Py_None);
+  auto mode_key = py::cast<c10::impl::TorchDispatchModeKey>(arg);
+
+  const auto maybe_mode = c10::impl::TorchDispatchModeTLS::unset_mode(mode_key);
+  if (maybe_mode == c10::nullopt) {
+    Py_RETURN_NONE;
+  }
+  auto* r = maybe_mode.value()->ptr(getPyInterpreter());
+  Py_INCREF(r);
+  return r;
+  END_HANDLE_TH_ERRORS
+}
+
+static PyObject* len_torch_dispatch_stack(PyObject* _unused, PyObject* args) {
   HANDLE_TH_ERRORS
   const auto len = c10::impl::TorchDispatchModeTLS::stack_len();
   return utils::wrap(static_cast<int64_t>(len));
@@ -1099,10 +1162,7 @@ static PyMethodDef methods[] = { // NOLINT
      push_on_torch_dispatch_stack,
      METH_O,
      nullptr},
-    {"_pop_torch_dispatch_stack",
-     pop_torch_dispatch_stack,
-     METH_NOARGS,
-     nullptr},
+    {"_pop_torch_dispatch_stack", pop_torch_dispatch_stack, METH_O, nullptr},
     {"_get_dispatch_stack_at",
      castPyCFunctionWithKeywords(get_dispatch_stack_at),
      METH_VARARGS | METH_KEYWORDS,
@@ -1111,6 +1171,10 @@ static PyMethodDef methods[] = { // NOLINT
      len_torch_dispatch_stack,
      METH_NOARGS,
      nullptr},
+    {"_set_dispatch_mode", set_dispatch_mode, METH_O, nullptr},
+    {"_get_dispatch_mode", get_dispatch_mode, METH_O, nullptr},
+    {"_unset_dispatch_mode", unset_dispatch_mode, METH_O, nullptr},
+
     {nullptr, nullptr, 0, nullptr}};
 
 PyMethodDef* python_functions() {

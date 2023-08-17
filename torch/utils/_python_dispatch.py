@@ -56,7 +56,7 @@ class TorchDispatchMode:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        _pop_mode(self.__dict__.get("_dispatch_key", None))
+        _pop_mode(self.__dict__.get("_dispatch_key", None), self.__dict__.get("_mode_key", None))
 
     @classmethod
     def push(cls, *args, **kwargs):
@@ -66,7 +66,10 @@ class TorchDispatchMode:
 
 def _get_current_dispatch_mode():
     stack_len = _len_torch_dispatch_stack()
-    return _get_dispatch_stack_at(stack_len - 1) if stack_len > 0 else None
+    # Return a user mode on the stack if there are any
+    if stack_len > 0:
+        return _get_dispatch_stack_at(stack_len - 1)
+    return None
 
 
 def _get_current_dispatch_mode_stack():
@@ -87,17 +90,20 @@ def _push_mode(mode, k: Optional[DispatchKey] = None):
         _push_on_torch_dispatch_stack(mode)
 
 
-def _pop_mode(k: Optional[DispatchKey] = None):
+def _pop_mode(k: Optional[DispatchKey] = None, mode_key: Optional[torch._C.TorchDispatchModeKey] = None):
     if k is not None:
         from torch._ops import pop_mode_for_key
+        # per-dispatch-key-mode-stack do not currently handle "always running infra modes last".
+        # In practice this doesn't matter, since ProxyTorchDispatchMode is the only mode
+        # that we push onto these per-dispatch-key-mode-stacks.
         return pop_mode_for_key(k)
     else:
-        return _pop_torch_dispatch_stack()
+        return _pop_torch_dispatch_stack(mode_key)
 
 
 @contextlib.contextmanager
-def _pop_mode_temporarily(k: Optional[DispatchKey] = None):
-    old = _pop_mode(k)
+def _pop_mode_temporarily(k: Optional[DispatchKey] = None, mode_key: Optional[torch._C.TorchDispatchModeKey] = None):
+    old = _pop_mode(k, mode_key)
     try:
         yield old
     finally:
@@ -108,6 +114,8 @@ def _pop_mode_temporarily(k: Optional[DispatchKey] = None):
 def _disable_current_modes():
     mode_len = _len_torch_dispatch_stack()
     old_modes = [_pop_mode() for _ in range(mode_len)]
+
+    # Manually disable proxy and fake modes, if any are active
     try:
         yield old_modes
     finally:
@@ -121,7 +129,6 @@ class BaseTorchDispatchMode(TorchDispatchMode):
             kwargs = {}
         return func(*args, **kwargs)
 
-
 def is_traceable_wrapper_subclass(t):
     # In order for a tensor subclass to support TorchDispatchMode-style tracing in PT2,
     # It must implement two magic methods: __tensor_flatten__ and __tensor_unflatten__.
@@ -133,7 +140,8 @@ def transform_subclass(t, callback):
     assert is_traceable_wrapper_subclass(t), f"Expects traceable wrapper subclass but got {type(t)}"
     # convert the tensor subclass into its constituent dense tensors,
     # and apply a transformation to each dense tensor.
-    from torch.utils._pytree import tree_map_only
-    flattened_tensors, ctx = type(t).__tensor_flatten__(t)
-    transformed_tensors = tree_map_only(torch.Tensor, callback, flattened_tensors)
-    return type(t).__tensor_unflatten__(transformed_tensors, ctx)
+    flattened_tensors_dict, ctx = type(t).__tensor_flatten__(t)
+    transformed_tensors_dict = {}
+    for k, v in flattened_tensors_dict.items():
+        transformed_tensors_dict[k] = callback(k, v)
+    return type(t).__tensor_unflatten__(transformed_tensors_dict, ctx)
