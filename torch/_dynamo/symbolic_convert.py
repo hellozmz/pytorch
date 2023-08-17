@@ -1968,6 +1968,7 @@ class InstructionTranslator(InstructionTranslatorBase):
         export,
         export_constraints,
         mutated_closure_cell_contents: Set[str],
+        frame,
         frame_state,
     ):
         _step_logger()(
@@ -1981,6 +1982,7 @@ class InstructionTranslator(InstructionTranslatorBase):
                 self,
                 export,
                 export_constraints,
+                frame,
                 frame_state,
                 local_scope=f_locals,
                 global_scope=f_globals,

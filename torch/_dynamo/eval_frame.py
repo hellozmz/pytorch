@@ -269,12 +269,16 @@ class _TorchDynamoContext:
         self.dynamic_ctx.__exit__(exc_type, exc_val, exc_tb)
         self.backend_ctx.__exit__(exc_type, exc_val, exc_tb)
 
-    def __call__(self, fn):
+    def __call__(self, fn, fx_node_meta_context=None):
         # public api for compiler config/options
         def get_compiler_config():
             return self.compiler_config
 
         fn = innermost_fn(fn)
+
+        if isinstance(fn, torch.fx.GraphModule):
+            fn.forward.__func__._torchdynamo_context = {"orig_graphmodule": fn}
+
         # Optimize the forward method of torch.nn.Module object
         if isinstance(fn, torch.nn.Module):
             mod = fn
