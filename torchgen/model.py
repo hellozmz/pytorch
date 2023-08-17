@@ -206,6 +206,7 @@ class DispatchKey(Enum):
 
 
 class TorchDispatchModeKey(Enum):
+    FUNCTIONAL = auto()
     PROXY = auto()
     FAKE = auto()
 
