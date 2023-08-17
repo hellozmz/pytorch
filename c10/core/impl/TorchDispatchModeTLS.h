@@ -7,9 +7,10 @@ namespace c10 {
 namespace impl {
 
 enum class TorchDispatchModeKey : int8_t {
-  PROXY = 0,
-  FAKE = 1,
-  NUM_MODE_KEYS = 2
+  FUNCTIONAL = 0,
+  PROXY = 1,
+  FAKE = 2,
+  NUM_MODE_KEYS = 3
 };
 
 struct C10_API TorchDispatchModeTLS {
