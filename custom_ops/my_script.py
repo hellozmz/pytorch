@@ -13,6 +13,7 @@ print("Output after custom add:", output)
 
 # 计算梯度
 output.sum().backward()
+# custom_add.custom_add_backward(output)
 
 # 打印输入张量的梯度
 print("Gradient of input1:", input1.grad)
