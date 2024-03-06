@@ -1,6 +1,7 @@
 import torch
 import custom_add
 
+import pdb
 # 创建两个张量
 input1 = torch.tensor([1, 2, 3], dtype=torch.float32, requires_grad=True)
 input2 = torch.tensor([4, 5, 6], dtype=torch.float32, requires_grad=True)
@@ -12,7 +13,9 @@ output = custom_add.custom_add(input1, input2)
 print("Output after custom add:", output)
 
 # 计算梯度
-output.sum().backward()
+# pdb.set_trace()
+output.backward(torch.ones_like(output))
+# output.sum().backward()
 # custom_add.custom_add_backward(output)
 
 # 打印输入张量的梯度

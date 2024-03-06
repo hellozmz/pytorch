@@ -52,6 +52,9 @@ __all__ = [
     'sym_int', 'sym_float', 'sym_max', 'sym_min', 'compile', 'vmap'
 ]
 
+print("FileName: " + __file__ + '\n')
+print('Welcome To PyTorch Source Code World\n')
+
 ################################################################################
 # Load the extension module
 ################################################################################
